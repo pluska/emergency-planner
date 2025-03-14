@@ -6,7 +6,7 @@ import Plan from './pages/Plan';
 import './App.css'
 function App() {
   return (
-    <Router>
+    <Router basename="/emergency-planner">
       <Layout>
         <Routes>
           <Route path="/" element={<Home />} />
