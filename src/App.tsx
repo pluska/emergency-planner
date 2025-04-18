@@ -3,7 +3,12 @@ import Layout from './components/Layout';
 import Home from './pages/Home';
 import Recommendations from './pages/Recommendations';
 import Plan from './pages/Plan';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
+import ProtectedRoute from './components/ProtectedRoute';
 import './App.css'
+
 function App() {
   return (
     <Router basename="/emergency-planner">
@@ -12,6 +17,16 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/plan" element={<Plan />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </Layout>
     </Router>

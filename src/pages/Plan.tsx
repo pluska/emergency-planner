@@ -3,15 +3,11 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
-import { beginSteps, determineRecommendedPlan } from '../plans/begin';
-import { storageSteps } from '../plans/storage';
-import { emergencyFundSteps } from '../plans/emergency-fund';
-import { emergencyBagpackSteps } from '../plans/emergency-bagpack';
 import { validateInput } from '../utils/validation';
 import { PlanStep } from '../types/plans';
 import { generatePlanFromPrompt } from '../services/openai';
 import EmergencyChecklist from '../components/EmergencyChecklist';
-
+import { fetchPlansBegin, fetchPlanSteps } from '../services/plans';
 type PlanType = 'emergency-bagpack' | 'storage' | 'emergency-fund' | null;
 
 interface RecommendationResult {
@@ -31,20 +27,24 @@ const Plan = () => {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isGeneratingPlanError, setIsGeneratingPlanError] = useState(false);
   const [checklistData, setChecklistData] = useState('');
+  const [steps, setSteps] = useState<PlanStep[]>([]);
+  const [isLoadingSteps, setIsLoadingSteps] = useState(false);
+  const [stepsError, setStepsError] = useState<string | null>(null);
 
-  // Determine which steps to use based on the plan type
-  const getSteps = () => {
-    if (!planType) return beginSteps;
-    
-    switch (planType) {
-      case 'storage':
-        return storageSteps;
-      case 'emergency-fund':
-        return emergencyFundSteps;
-      case 'emergency-bagpack':
-        return emergencyBagpackSteps;
-      default:
-        return beginSteps;
+  // Fetch steps based on plan type
+  const fetchSteps = async (type: PlanType | null) => {
+    setIsLoadingSteps(true);
+    setStepsError(null);
+    try {
+      const response = type === null 
+        ? await fetchPlansBegin()
+        : await fetchPlanSteps(type);
+      setSteps(response.data);
+    } catch (error) {
+      console.error('Error fetching steps:', error);
+      setStepsError('Failed to load plan steps. Please try again.');
+    } finally {
+      setIsLoadingSteps(false);
     }
   };
 
@@ -52,8 +52,19 @@ const Plan = () => {
     const type = searchParams.get('type') as PlanType;
     if (type) {
       setPlanType(type);
+      fetchSteps(type);
+    } else {
+      fetchSteps(null);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (planType !== null) {
+      fetchSteps(planType);
+      setCurrentStep(1);
+      setFormData({});
+    }
+  }, [planType]);
 
   const handleInputChange = (key: string, value: string, field: PlanStep['fields'][0]) => {
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -90,7 +101,6 @@ const Plan = () => {
   };
 
   const handleNext = () => {
-    const steps = getSteps();
     const currentStepData = steps[currentStep - 1];
     
     if (validateStep(currentStepData)) {
@@ -142,6 +152,43 @@ const Plan = () => {
     setFormData({});
   };
 
+  const determineRecommendedPlan = (formData: Record<string, string>): RecommendationResult => {
+    // Analyze form data to determine the best plan
+    const {
+      livingArrangement = '',
+      mobilityNeeds = '',
+      financialSituation = '',
+      primaryConcern = '',
+      timeframe = ''
+    } = formData;
+
+    // Default to storage as primary if no clear indicators
+    let primaryRecommendation: PlanType = 'storage';
+    let secondaryRecommendation: PlanType | undefined;
+    let reasoning = '';
+
+    // Determine primary recommendation
+    if (primaryConcern === 'financial_security' || financialSituation === 'unstable') {
+      primaryRecommendation = 'emergency-fund';
+      reasoning = 'Based on your financial situation and concerns, we recommend starting with an emergency fund to build financial security.';
+      secondaryRecommendation = 'storage';
+    } else if (primaryConcern === 'mobility' || mobilityNeeds === 'high' || livingArrangement === 'temporary') {
+      primaryRecommendation = 'emergency-bagpack';
+      reasoning = 'Given your mobility needs and living situation, an emergency bagpack would be most beneficial for quick response.';
+      secondaryRecommendation = 'storage';
+    } else {
+      primaryRecommendation = 'storage';
+      reasoning = 'Based on your situation, we recommend starting with emergency storage to ensure you have essential supplies.';
+      secondaryRecommendation = timeframe === 'immediate' ? 'emergency-bagpack' : 'emergency-fund';
+    }
+
+    return {
+      primaryRecommendation,
+      secondaryRecommendation,
+      reasoning
+    };
+  };
+
   // Show recommendation result
   if (recommendation) {
     return (
@@ -182,13 +229,27 @@ const Plan = () => {
     );
   }
 
-  const steps = getSteps();
   const currentStepData = steps[currentStep - 1];
 
   return (
     <div className="min-h-screen bg-secondary p-8">
       <div className="max-w-4xl mx-auto">
-        {checklistData === '' && (
+        {isLoadingSteps ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading plan steps...</p>
+          </div>
+        ) : stepsError ? (
+          <div className="text-center py-8">
+            <p className="text-red-500">{stepsError}</p>
+            <button
+              onClick={() => fetchSteps(planType)}
+              className="mt-4 bg-primary hover:bg-primary/90 text-white font-header font-semibold px-6 py-2 rounded-lg transition-colors duration-200"
+            >
+              Retry
+            </button>
+          </div>
+        ) : checklistData === '' && steps.length > 0 && (
         <Card
           title={currentStepData.title}
           currentStep={currentStep}
