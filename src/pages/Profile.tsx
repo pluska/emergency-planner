@@ -2,9 +2,9 @@ import Card from '../components/ui/Card';
 import { useAuth } from '../hooks/useAuth';
 
 const Profile = () => {
-  const { user, profile, essentialInfo, loading, error } = useAuth();
+  const { user, profile, essentialInfo, isLoading, error } = useAuth();
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="animate-pulse">

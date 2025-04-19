@@ -1,101 +1,157 @@
-import { createContext, useState, useEffect, ReactNode } from 'react';
-import type { UserInterface } from '../types/User';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { AuthState, LoginCredentials, RegisterCredentials } from '../types/auth';
+import Cookies from 'js-cookie';
+import axios from 'axios';
 import type { Profile } from '../types/profile';
 import type { EssentialInfo } from '../types/essentialInfo';
-import { getProfile } from '../services/profile';
-import { getEssentialInfoById } from '../services/essentialInfo';
-import { getUserData, logout as authLogout } from '../services/auth';
+import config from '../config/config';
 
-interface AuthContextType {
-  user: UserInterface | null;
+interface AuthContextType extends AuthState {
+  login: (credentials: LoginCredentials) => Promise<void>;
+  register: (credentials: RegisterCredentials) => Promise<void>;
+  logout: () => void;
+  clearError: () => void;
   profile: Profile | null;
   essentialInfo: EssentialInfo | null;
-  loading: boolean;
-  error: string | null;
-  login: (userData: UserInterface) => void;
-  logout: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserInterface | null>(null);
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    token: null,
+    isAuthenticated: false,
+    isLoading: true,
+    error: null,
+  });
   const [profile, setProfile] = useState<Profile | null>(null);
   const [essentialInfo, setEssentialInfo] = useState<EssentialInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Initialize user data from localStorage
   useEffect(() => {
-    const initializeUser = async () => {
-      try {
-        const response = await getUserData();
-        if (response.user) {
-          setUser(response.user);
-        }
-      } catch (err) {
-        console.error('Error initializing user:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeUser();
+    const token = Cookies.get('token');
+    if (token) {
+      validateToken(token);
+    } else {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
   }, []);
 
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      if (!user) {
-        setProfile(null);
-        setEssentialInfo(null);
-        setLoading(false);
-        return;
-      }
+  const validateToken = async (token: string) => {
+    try {
+      const response = await axios.get(`${config.apiUrl}/auth/validate`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setState({
+        user: response.data.user,
+        token,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      });
+    } catch {
+      Cookies.remove('token');
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
 
-      try {
-        setLoading(true);
-        const [profileData, essentialInfoData] = await Promise.all([
-          getProfile(user.id),
-          getEssentialInfoById(user.id)
-        ]);
-        setProfile(profileData);
-        setEssentialInfo(essentialInfoData);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load profile or essential info data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const login = async (credentials: LoginCredentials) => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      const response = await axios.post(`${config.apiUrl}/auth/login`, credentials);
+      const { token, user } = response.data;
+      
+      Cookies.set('token', token, { 
+        secure: true, 
+        sameSite: 'strict',
+        expires: credentials.rememberMe ? 7 : undefined
+      });
+      
+      setState({
+        user,
+        token,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
+  };
 
-    fetchProfileData();
-  }, [user]);
-
-  const login = (userData: UserInterface) => {
-    setUser(userData);
+  const register = async (credentials: RegisterCredentials) => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      const response = await axios.post(`${config.apiUrl}/auth/register`, credentials);
+      const { token, user } = response.data;
+      
+      Cookies.set('token', token, { 
+        secure: true, 
+        sameSite: 'strict'
+      });
+      
+      setState({
+        user,
+        token,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    }
   };
 
   const logout = () => {
-    authLogout();
-    setUser(null);
+    Cookies.remove('token');
+    setState({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+    });
     setProfile(null);
     setEssentialInfo(null);
   };
 
-  const value = {
-    user,
-    profile,
-    essentialInfo,
-    loading,
-    error,
-    login,
-    logout
+  const clearError = () => {
+    setState(prev => ({ ...prev, error: null }));
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        profile,
+        essentialInfo,
+        login,
+        register,
+        logout,
+        clearError,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }; 

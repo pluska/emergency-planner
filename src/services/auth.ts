@@ -55,6 +55,28 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
   return fetch(url, mergedOptions);
 };
 
+const fetchWithoutAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const defaultOptions: RequestInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    mode: 'cors',
+    credentials: 'same-origin'
+  };
+
+  const mergedOptions = {
+    ...defaultOptions,
+    ...options,
+    headers: {
+      ...defaultOptions.headers,
+      ...options.headers
+    }
+  };
+
+  return fetch(url, mergedOptions);
+};
+
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
   try {
     const requestBody = {
@@ -63,7 +85,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
       name: data.name
     };
     
-    const response = await fetchWithAuth(`${config.apiUrl}/auth/register`, {
+    const response = await fetchWithoutAuth(`${config.apiUrl}/auth/register`, {
       method: 'POST',
       body: JSON.stringify(requestBody)
     });
