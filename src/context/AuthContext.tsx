@@ -11,6 +11,8 @@ interface AuthContextType extends AuthState {
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => void;
   clearError: () => void;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
   profile: Profile | null;
   essentialInfo: EssentialInfo | null;
 }
@@ -58,7 +60,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: LoginCredentials) => {
     try {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
-      const response = await axios.post(`${config.apiUrl}/auth/login`, credentials);
+      try {
+        const healthResponse = await axios.get(`${config.apiUrl}/health`);
+        console.log('Server health check:', healthResponse.data);
+      } catch (healthError) {
+        console.error('Server health check failed:', healthError);
+        throw new Error('Server is not responding. Please check if the backend server is running.');
+      }
+
+      const response = await axios.post(`${config.apiUrl}/auth/login`, credentials, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
       const { token, user } = response.data;
       
       Cookies.set('token', token, { 
@@ -75,7 +90,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         error: null,
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      let errorMessage = 'Login failed';
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          errorMessage = 'Invalid email or password';
+        } else {
+          errorMessage = error.response?.data?.message || error.message;
+        }
+        console.error('Login error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+      }
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -131,6 +158,93 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setState(prev => ({ ...prev, error: null }));
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      await axios.post(`${config.apiUrl}/auth/forgot-password`, { email }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to process password reset request';
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || error.message;
+        console.error('Forgot password error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+      }
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const resetPassword = async (token: string, password: string) => {
+    try {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      await axios.post(`${config.apiUrl}/auth/reset-password`, { token, password }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      });
+      
+      // Clear any existing error on success
+      setState(prev => ({ ...prev, error: null }));
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to reset password';
+      
+      if (axios.isAxiosError(error)) {
+        // Handle different types of errors
+        if (error.response) {
+          // Server responded with an error
+          const status = error.response.status;
+          const data = error.response.data;
+          
+          if (status === 400) {
+            errorMessage = data.message || 'Invalid request. Please check your input.';
+          } else if (status === 401) {
+            errorMessage = data.message || 'Invalid or expired reset token.';
+          } else if (status === 500) {
+            errorMessage = data.message || 'Server error. Please try again later.';
+          } else {
+            errorMessage = data.message || `Error: ${status}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = 'No response from server. Please check your connection.';
+        } else {
+          // Something else happened
+          errorMessage = error.message || 'An unexpected error occurred.';
+        }
+        
+        console.error('Reset password error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+      }
+      
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: errorMessage,
+      }));
+      throw error;
+    } finally {
+      setState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -141,6 +255,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         register,
         logout,
         clearError,
+        forgotPassword,
+        resetPassword,
       }}
     >
       {children}
