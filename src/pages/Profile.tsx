@@ -1,5 +1,5 @@
 import Card from '../components/ui/Card';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const Profile = () => {
   const { user, profile, essentialInfo, loading, error } = useAuth();
