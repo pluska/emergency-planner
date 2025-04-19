@@ -7,7 +7,6 @@ const handleResponse = async (response: Response): Promise<AuthResponse> => {
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       result = await response.json();
-      console.log('Response data:', { ...result, token: result.token ? '[PRESENT]' : '[MISSING]' });
     } else {
       const text = await response.text();
       throw new Error(`Server returned non-JSON response: ${text}`);
@@ -36,10 +35,8 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
     credentials: 'same-origin'
   };
 
-  // Add authorization header if token exists
   const token = config.auth.getToken();
   if (token) {
-    console.log('Using existing token:', token.substring(0, 10) + '...');
     defaultOptions.headers = {
       ...defaultOptions.headers,
       'Authorization': `Bearer ${token}`
@@ -74,11 +71,7 @@ export const register = async (data: RegisterData): Promise<AuthResponse> => {
     const result = await handleResponse(response);
 
     if (result.token) {
-      console.log('Setting token after registration');
       config.auth.setToken(result.token);
-      // Verify token was set
-      const storedToken = config.auth.getToken();
-      console.log('Token stored successfully:', storedToken ? 'Yes' : 'No');
     } else {
       console.log('No token received in registration response');
     }
@@ -105,11 +98,7 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     const result = await handleResponse(response);
 
     if (result.token) {
-      console.log('Setting token after login');
       config.auth.setToken(result.token);
-      // Verify token was set
-      const storedToken = config.auth.getToken();
-      console.log('Token stored successfully:', storedToken ? 'Yes' : 'No');
     } else {
       console.log('No token received in login response');
     }
@@ -120,29 +109,15 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     throw error;
   }
 };
-
 export const getUserData = async () => {
-  try {
-    const token = config.auth.getToken();
-    console.log('Getting user data with token:', token ? 'Present' : 'Missing');
-    
-    const response = await fetchWithAuth(`${config.apiUrl}/auth/me`);
-    return await handleResponse(response);
-  } catch (error) {
-    console.error('Error fetching user data:', error);
-    throw error;
-  }
+  const response = await fetchWithAuth(`${config.apiUrl}/auth/me`);
+  return await handleResponse(response);
 };
-
 export const logout = (): void => {
-  console.log('Removing token');
   config.auth.removeToken();
-  const tokenAfterRemoval = config.auth.getToken();
-  console.log('Token removed successfully:', !tokenAfterRemoval);
 };
 
 export const isAuthenticated = (): boolean => {
   const hasToken = config.auth.isAuthenticated();
-  console.log('Checking authentication:', hasToken);
   return hasToken;
 }; 

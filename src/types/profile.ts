@@ -1,6 +1,6 @@
 export interface Profile {
-    id: number;
-    user_id: number;
+    id: string;
+    user_id: string;
     first_name: string | null;
     last_name: string | null;
     email: string;
@@ -11,8 +11,8 @@ export interface Profile {
 }
 
 export interface FormInformation {
-    id: number;
-    user_id: number;
+    id: string;
+    user_id: string;
     age_range: '18-25' | '26-35' | '36-50' | '51-65' | '65+';
     dependents_count: number;
     living_situation: 'own-house' | 'rent-house' | 'apartment' | 'shared' | 'other';
@@ -21,7 +21,7 @@ export interface FormInformation {
 }
 
 export interface CreateProfileRequest {
-    user_id: number;
+    user_id: string;
     first_name?: string;
     last_name?: string;
     email: string;
@@ -38,7 +38,7 @@ export interface UpdateProfileRequest {
 }
 
 export interface CreateFormInformationRequest {
-    user_id: number;
+    user_id: string;
     age_range: '18-25' | '26-35' | '36-50' | '51-65' | '65+';
     dependents_count: number;
     living_situation: 'own-house' | 'rent-house' | 'apartment' | 'shared' | 'other';

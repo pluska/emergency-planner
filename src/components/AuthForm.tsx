@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Input from './ui/Input';
 import { login, register } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
 
 interface AuthFormProps {
   mode: 'login' | 'register';
@@ -9,6 +10,7 @@ interface AuthFormProps {
 
 const AuthForm = ({ mode }: AuthFormProps) => {
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -62,7 +64,10 @@ const AuthForm = ({ mode }: AuthFormProps) => {
     setIsLoading(true);
     try {
       if (mode === 'login') {
-        await login({ email: formData.email, password: formData.password });
+        const response = await login({ email: formData.email, password: formData.password });
+        if (response.user) {
+          authLogin(response.user);
+        }
       } else {
         await register({ email: formData.email, password: formData.password, name: formData.name });
       }
@@ -118,7 +123,7 @@ const AuthForm = ({ mode }: AuthFormProps) => {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="mt-6">
           <button
             type="submit"
             disabled={isLoading}

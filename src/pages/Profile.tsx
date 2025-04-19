@@ -1,35 +1,8 @@
-import { useEffect, useState } from 'react';
 import Card from '../components/ui/Card';
-import { getProfile, getFormInformation } from '../services/profile';
-import type { Profile, FormInformation } from '../types/profile';
+import { useAuth } from '../context/AuthContext';
 
 const Profile = () => {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [formInfo, setFormInfo] = useState<FormInformation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // TODO: Replace with actual user ID from auth context
-        const userId = 1;
-        const [profileData, formData] = await Promise.all([
-          getProfile(userId),
-          getFormInformation(userId)
-        ]);
-        setProfile(profileData);
-        setFormInfo(formData);
-      } catch (err) {
-        setError('Failed to load profile data');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const { user, profile, essentialInfo, loading, error } = useAuth();
 
   if (loading) {
     return (
@@ -57,6 +30,17 @@ const Profile = () => {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Not Logged In</strong>
+          <span className="block sm:inline"> Please log in to view your profile.</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-header font-bold text-gray-800 mb-8">Profile</h1>
@@ -73,7 +57,7 @@ const Profile = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Email</label>
-              <p className="mt-1 text-lg text-gray-900">{profile?.email}</p>
+              <p className="mt-1 text-lg text-gray-900">{user.email}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Phone</label>
@@ -91,15 +75,15 @@ const Profile = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Age Range</label>
-              <p className="mt-1 text-lg text-gray-900">{formInfo?.age_range}</p>
+              <p className="mt-1 text-lg text-gray-900">{essentialInfo?.age_range}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Number of Dependents</label>
-              <p className="mt-1 text-lg text-gray-900">{formInfo?.dependents_count}</p>
+              <p className="mt-1 text-lg text-gray-900">{essentialInfo?.dependents_count}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Living Situation</label>
-              <p className="mt-1 text-lg text-gray-900">{formInfo?.living_situation}</p>
+              <p className="mt-1 text-lg text-gray-900">{essentialInfo?.living_situation}</p>
             </div>
           </div>
         </Card>

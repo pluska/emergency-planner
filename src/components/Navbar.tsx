@@ -1,41 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { isAuthenticated, logout, getUserData } from '../services/auth';
-import { UserData } from '../types/Authentication';
+import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const navigate = useNavigate();
-  const [isAuth, setIsAuth] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [userData, setUserData] = useState<UserData | null>(null);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const authStatus = isAuthenticated();
-      setIsAuth(authStatus);
-      
-      if (authStatus) {
-        try {
-          const response = await getUserData();
-          if (response.user) {
-            setUserData(response.user);
-          } else {
-            handleLogout();
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          handleLogout();
-        }
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
-    setIsAuth(false);
-    setUserData(null);
     navigate('/login');
   };
 
@@ -53,7 +26,7 @@ const Navbar = () => {
             
             {/* Desktop Navigation */}
             <div className="hidden flex justify-end items-center sm:ml-6 sm:flex sm:space-x-8">
-              {isAuth ? (
+              {user ? (
                 <>
                   <Link
                     to="/my-plans"
@@ -80,15 +53,15 @@ const Navbar = () => {
           </div>
 
           {/* Auth section */}
-          <div className="hidden sm:flex sm:items-center sm:ml-6">
-            {isAuth && userData ? (
+          <div className="flex items-center">
+            {user ? (
               <div className="relative ml-3 flex items-center space-x-4">
                 <button
                   onClick={() => navigate('/profile')}
                   className="flex items-center space-x-2 text-gray-700 hover:text-primary"
                 >
                   <span>👤</span>
-                  <span>{userData.name}</span>
+                  <span>{user.name}</span>
                 </button>
                 <button
                   onClick={handleLogout}
@@ -119,7 +92,7 @@ const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="sm:hidden flex items-center">
+          <div className="flex items-center sm:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="text-gray-700 hover:text-primary"
@@ -136,7 +109,7 @@ const Navbar = () => {
       {isMenuOpen && (
         <div className="sm:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            {isAuth ? (
+            {user ? (
               <>
                 <Link
                   to="/my-plans"
@@ -152,7 +125,7 @@ const Navbar = () => {
                 </Link>
                 <div className="border-t border-gray-200 my-2"></div>
                 <div className="px-3 py-2 flex items-center justify-between">
-                  <span className="text-gray-700">{userData?.name}</span>
+                  <span className="text-gray-700">{user.name}</span>
                   <button
                     onClick={handleLogout}
                     className="text-gray-700 hover:text-primary"
