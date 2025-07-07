@@ -1,5 +1,4 @@
-import { ReactNode } from 'react';
-import Navbar from './Navbar.tsx';
+import { ReactNode } from "react";
 
 interface LayoutProps {
   children: ReactNode;
@@ -7,13 +6,8 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   return (
-    <div className="flex flex-col w-full overflow-auto">
-      <div className="w-full">
-        <Navbar />
-      </div>
-      <main className="flex-1">
-        {children}
-      </main>
+    <div className="flex justify-center items-center flex-col w-full overflow-hidden">
+      <main className="flex-1">{children}</main>
     </div>
   );
 };
